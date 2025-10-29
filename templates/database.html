@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Missing Person Database</title>
+  <style>
+    body { font-family: Arial; background: #f9f9f9; margin: 20px; }
+    h1 { text-align: center; color: #333; }
+    form { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px #ccc; width: 400px; margin: 20px auto; }
+    input, select { width: 100%; padding: 8px; margin: 6px 0; border: 1px solid #ccc; border-radius: 5px; }
+    table { width: 90%; margin: 20px auto; border-collapse: collapse; background: white; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background: #333; color: white; }
+    img { width: 100px; height: 100px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Missing Person Database</h1>
+
+  <form action="/add_person" method="POST" enctype="multipart/form-data">
+    <input type="text" name="name" placeholder="Name" required>
+    <input type="number" name="age" placeholder="Age">
+    <select name="gender">
+      <option value="">Select Gender</option>
+      <option value="Male">Male</option>
+      <option value="Female">Female</option>
+    </select>
+    <input type="text" name="last_seen" placeholder="Last Seen Location">
+    <input type="file" name="photo" accept="image/*" required>
+    <button type="submit">Add Person</button>
+  </form>
+
+  <table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Photo</th>
+      <th>Name</th>
+      <th>Age</th>
+      <th>Gender</th>
+      <th>Last Seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for person in data %}
+    <tr>
+      <td>{{ person[0] }}</td>
+      <td>
+        {% if person[5] %}
+          <img src="{{ url_for('static', filename='uploads/' + person[5]) }}" width="60">
+        {% else %}
+          No Photo
+        {% endif %}
+      </td>
+      <td>{{ person[1] }}</td>
+      <td>{{ person[2] }}</td>
+      <td>{{ person[3] }}</td>
+      <td>{{ person[4] }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
