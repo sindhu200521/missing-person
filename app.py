@@ -1,10 +1,8 @@
-# app.py — Flask backend for Missing Person Identification System
-
 import os
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect
 from werkzeug.utils import secure_filename
-import face_recognition
+from deepface import DeepFace
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
@@ -12,6 +10,7 @@ DB_PATH = 'database/persons.db'
 
 # Ensure upload folder exists
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs('database', exist_ok=True)
 
 # Initialize SQLite database
 def init_db():
@@ -43,7 +42,6 @@ def database():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
-    # Handle new person form submission
     if request.method == 'POST':
         name = request.form['name']
         age = request.form['age']
@@ -51,14 +49,15 @@ def database():
         location = request.form['location']
         photo = request.files['photo']
         filename = secure_filename(photo.filename)
-        photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        photo_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        photo.save(photo_path)
 
         # Insert into database
         c.execute("INSERT INTO persons (name, age, gender, location, photo) VALUES (?, ?, ?, ?, ?)",
                   (name, age, gender, location, filename))
         conn.commit()
 
-    # Fetch all registered persons
+    # Fetch all persons
     c.execute("SELECT * FROM persons")
     persons = c.fetchall()
     conn.close()
@@ -73,26 +72,18 @@ def dashboard():
             path = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(uploaded_file.filename))
             uploaded_file.save(path)
 
-            # Load uploaded image and extract face encoding
-            unknown_image = face_recognition.load_image_file(path)
-            unknown_encoding = face_recognition.face_encodings(unknown_image)
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("SELECT * FROM persons")
+            persons = c.fetchall()
+            conn.close()
 
-            if unknown_encoding:
-                unknown_encoding = unknown_encoding[0]
-
-                # Compare with known faces in database
-                conn = sqlite3.connect(DB_PATH)
-                c = conn.cursor()
-                c.execute("SELECT * FROM persons")
-                persons = c.fetchall()
-                conn.close()
-
-                for person in persons:
-                    known_image_path = os.path.join(app.config['UPLOAD_FOLDER'], person[5])
-                    known_image = face_recognition.load_image_file(known_image_path)
-                    known_encoding = face_recognition.face_encodings(known_image)
-
-                    if known_encoding and face_recognition.compare_faces([known_encoding[0]], unknown_encoding)[0]:
+            found = False
+            for person in persons:
+                known_image_path = os.path.join(app.config['UPLOAD_FOLDER'], person[5])
+                try:
+                    comparison = DeepFace.verify(img1_path=path, img2_path=known_image_path, enforce_detection=False)
+                    if comparison["verified"]:
                         result = {
                             'name': person[1],
                             'age': person[2],
@@ -100,18 +91,17 @@ def dashboard():
                             'location': person[4],
                             'photo': person[5]
                         }
+                        found = True
                         break
+                except Exception as e:
+                    print("Error comparing faces:", e)
+                    continue
 
-                if not result:
-                    result = 'Person not found in database.'
-            else:
-                result = 'No face detected in uploaded image.'
+            if not found:
+                result = 'Person not found in database.'
+
     return render_template('dashboard.html', result=result)
-
-import os
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port)
-
-
