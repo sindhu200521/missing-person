@@ -108,5 +108,10 @@ def dashboard():
                 result = 'No face detected in uploaded image.'
     return render_template('dashboard.html', result=result)
 
+import os
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
+
+
